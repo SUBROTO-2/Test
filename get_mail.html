@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Private Mail API Console</title>
+<style>
+:root{color-scheme:dark;--bg:#08090d;--panel:#11141c;--line:#292e3b;--red:#ff344f;--muted:#a4aaba;--text:#f4f6fb;--green:#59e1a1}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#241018 0,#0b0b10 44%,var(--bg) 100%);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);min-height:100vh;display:grid;place-items:center;padding:22px}
+.wrap{width:min(900px,100%)}.tag{color:#ff7d8d;letter-spacing:.18em;font-size:.76rem;font-weight:750}.title{font-size:clamp(2rem,6vw,3rem);line-height:1.12;margin:10px 0}.sub{color:var(--muted);margin:0 0 24px}.card{background:rgba(17,20,28,.94);border:1px solid var(--line);border-radius:20px;padding:clamp(18px,4vw,28px);box-shadow:0 18px 65px #0008}.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.btn{border:0;border-radius:12px;padding:13px 19px;background:linear-gradient(120deg,#ff344f,#bc1537);color:#fff;font-size:1rem;font-weight:750;cursor:pointer;box-shadow:0 7px 25px #ff344f27}.btn:disabled{opacity:.6;cursor:wait}.secondary{background:#202431;border:1px solid #343b4b;box-shadow:none}.status{color:var(--muted);font-size:.93rem;min-height:1.5em}.status.ok{color:var(--green)}.status.bad{color:#ff7885}.label{display:block;margin:20px 0 8px;color:#c7ccda;font-size:.9rem;font-weight:650}.endpoint{overflow-wrap:anywhere;background:#0b0e14;border:1px solid var(--line);padding:12px;border-radius:10px;color:#ffb3bd;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.85rem}pre{margin:0;background:#080a0f;border:1px solid #292e3b;border-radius:14px;padding:16px;min-height:210px;max-height:55vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#e2e8f0}.foot{margin-top:16px;color:#8f96a8;font-size:.8rem}.pill{display:inline-block;background:#191e29;border:1px solid #303747;color:#c5ccda;border-radius:999px;padding:4px 9px;font-size:.76rem;margin:0 6px 8px 0}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="tag">PRIVATE API CONSOLE</div>
+  <h1 class="title">Get Mail · JSON Viewer</h1>
+  <p class="sub">Request the API and display the complete JSON response below.</p>
+  <section class="card">
+    <span class="pill">POST request</span><span class="pill">JSON response</span><span class="pill">Passwords are not returned</span>
+    <label class="label">API Endpoint</label>
+    <div class="endpoint" id="endpoint">https://syntex.xo.je/ms/ex.php?api=1</div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn" id="getBtn" type="button">Get Mail</button>
+      <button class="btn secondary" id="copyBtn" type="button" disabled>Copy JSON</button>
+      <button class="btn secondary" id="clearBtn" type="button">Clear</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite">Ready. Press Get Mail to call the API.</p>
+    <label class="label" for="output">Full JSON Response</label>
+    <pre id="output">{
+  "status": "waiting",
+  "message": "Press Get Mail to fetch the response."
+}</pre>
+    <p class="foot">Security note: this page contains the API key in browser-side JavaScript. Anyone who can access this HTML can view and reuse that key. Keep this file private or revoke the key if it becomes public.</p>
+  </section>
+</main>
+<script>
+'use strict';
+const API_URL = 'https://syntex.xo.je/ms/ex.php?api=1';
+// A key included in client-side HTML is visible to anyone who can read this file.
+const API_KEY = 'mk_eyJ2IjoxLCJsaW1pdCI6NSwibGFiZWwiOiJAS3Jpc2huYV9TdWJyb3RvIiwiaWF0IjoxNzkxOTg1NzU1fQ.9a8cf4883d381da0789c9e082258e5fb839c52bf30f3f74994f7c9fc36b5902f';
+const getBtn=document.getElementById('getBtn');
+const copyBtn=document.getElementById('copyBtn');
+const clearBtn=document.getElementById('clearBtn');
+const statusEl=document.getElementById('status');
+const output=document.getElementById('output');
+function setStatus(message,kind=''){statusEl.textContent=message;statusEl.className='status'+(kind?' '+kind:'');}
+getBtn.addEventListener('click', async()=>{
+  getBtn.disabled=true;copyBtn.disabled=true;setStatus('Requesting API…');
+  output.textContent='Loading…';
+  try {
+    const response=await fetch(API_URL,{method:'POST',headers:{'X-API-Key':API_KEY,'Accept':'application/json'}});
+    const raw=await response.text();
+    let data;
+    try { data=JSON.parse(raw); }
+    catch { data={success:false,error:'The server did not return valid JSON.',http_status:response.status,raw_response:raw.slice(0,12000)}; }
+    const pretty=JSON.stringify(data,null,2);
+    output.textContent=pretty;
+    copyBtn.disabled=false;
+    if(response.ok){setStatus('Request completed · HTTP '+response.status,'ok');}
+    else {setStatus('API returned HTTP '+response.status+'. See JSON details below.','bad');}
+  } catch(error) {
+    const info={success:false,error:'Request failed. Check your connection and browser console.',details:String(error),hint:'Upload this HTML to the same HTTPS origin as ex.php (inside /ms/) to avoid browser CORS issues.'};
+    output.textContent=JSON.stringify(info,null,2);setStatus('Request failed. This may be a CORS or network issue.','bad');copyBtn.disabled=false;
+  } finally {getBtn.disabled=false;}
+});
+copyBtn.addEventListener('click',async()=>{
+  try {await navigator.clipboard.writeText(output.textContent);setStatus('JSON copied to clipboard.','ok');}
+  catch {setStatus('Clipboard access blocked by browser. Select and copy the JSON manually.','bad');}
+});
+clearBtn.addEventListener('click',()=>{output.textContent='';copyBtn.disabled=true;setStatus('Output cleared.');});
+</script>
+</body>
+</html>
